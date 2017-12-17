@@ -156,4 +156,8 @@ public class StreamAdapter extends RecyclerView.Adapter implements Filterable {
         };
     }
 
+    public Melody getItem(int position){
+        return mFilteredList.get(position);
+    }
+
 }

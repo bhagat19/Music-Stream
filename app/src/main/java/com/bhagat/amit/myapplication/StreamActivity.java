@@ -1,10 +1,9 @@
 package com.bhagat.amit.myapplication;
 
-import android.app.ProgressDialog;
+
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
-import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -43,6 +42,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     private int pageCount;
     private int increment = 0;
     boolean firstTime = true;
+    private boolean firstDefaultClick = false;
 
     private LinearLayoutManager layoutManager;
 
@@ -123,7 +123,12 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mp) {
+                Log.d(LOG_TAG, "onPrepared:");
                 togglePlayPause();
+                if (firstDefaultClick){
+                    togglePlayPause();
+                }
+
             }
         });
 
@@ -161,7 +166,9 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     @Override
     public void onMelodyItemClick(int position) {
 
-        Melody melody = melodies.get(position);
+        firstDefaultClick = false;
+
+        Melody melody = mAdapter.getItem(position);
         mSelectedMelodyTitle.setText(melody.getTitle());
 
         Picasso.Builder builder = new Picasso.Builder(this);
@@ -205,6 +212,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     }
 
     private void togglePlayPause() {
+
         if (mMediaPlayer.isPlaying()) {
             mMediaPlayer.pause();
             mPlayerControl.setImageResource(R.drawable.ic_play);
@@ -259,7 +267,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         int val = TOTAL_LIST_ITEMS % NUM_ITEMS_PAGE;
         val = (val == 0) ? 0 : 1;
-        pageCount = TOTAL_LIST_ITEMS/NUM_ITEMS_PAGE + val;
+        pageCount = TOTAL_LIST_ITEMS / NUM_ITEMS_PAGE + val;
 
         Log.d(LOG_TAG, "page count: "+pageCount);
 
@@ -292,7 +300,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
      */
     private void CheckEnable()
     {
-        if(increment+1 == pageCount)
+        if(increment + 1 == pageCount)
         {
             btnNext.setEnabled(false);
             btnPrev.setEnabled(true);
@@ -323,13 +331,12 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         Log.d(LOG_TAG, "filter list size: "+filteredList.size());
 
-
         mAdapter = new StreamAdapter(this,filteredList,this);
         mRecyclerView.setAdapter(mAdapter);
 
-//        melodies.clear();
-//        melodies.addAll(filteredList);
-//        mAdapter.notifyDataSetChanged();
+
+        onMelodyItemClick(0);
+        firstDefaultClick = true;
 
     }
 

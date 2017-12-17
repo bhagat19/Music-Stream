@@ -1,8 +1,11 @@
 package com.bhagat.amit.myapplication;
 
 
+import android.app.ProgressDialog;
+import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -52,10 +55,9 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     private MediaPlayer mMediaPlayer;
     private ImageView mPlayerControl;
     private ProgressBar mProgressBar;
+    
 
-    private int firstVisibleItemPosition, lastVisibleItemPosition;
-
-    private Button btnNext,btnPrev;
+    private Button btnNext, btnPrev;
 
     private static final String LOG_TAG = StreamActivity.class.getSimpleName();
 
@@ -67,14 +69,16 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         mSelectedMelodyImage = findViewById(R.id.selected_track_image);
         mSelectedMelodyTitle = findViewById(R.id.selected_track_title);
 
-        btnNext     = findViewById(R.id.btn_next);
-        btnPrev     = findViewById(R.id.btn_prev);
+        btnNext = findViewById(R.id.btn_next);
+        btnPrev = findViewById(R.id.btn_prev);
         btnPrev.setEnabled(false);
 
         initMedia();
 
         this.melodies = new ArrayList<>();
         this.responseMelodies = new ArrayList<>();
+
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
 //        final LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false) {
 //            @Override
@@ -100,30 +104,35 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 //        };
 
         mRecyclerView = findViewById(R.id.recycler_view);
-        mRecyclerView.setLayoutManager(new LinearLayoutManager(this,LinearLayoutManager.VERTICAL, false));
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         mRecyclerView.setHasFixedSize(true);
         mAdapter = new StreamAdapter(this, melodies, this);
         mRecyclerView.setAdapter(mAdapter);
 
-        loadData();
+        if (isNetworkConnected()) {
+            loadData();
+        } else {
+            Toast.makeText(this, "Device is not connected to internet", Toast.LENGTH_SHORT).show();
+        }
     }
 
-    private void loadData(){
+    private void loadData() {
 
         OlaStudioService service = OlaStudio.getService();
 
         service.getRecentTracks().enqueue(new Callback<ArrayList<Melody>>() {
             @Override
             public void onResponse(Call<ArrayList<Melody>> call, Response<ArrayList<Melody>> response) {
+                mProgressBar.setVisibility(View.GONE);
 
                 if (response.isSuccessful()) {
-                    Log.d(LOG_TAG,"response: "+response.toString());
+                    Log.d(LOG_TAG, "response: " + response.toString());
                     ArrayList<Melody> melodies = response.body();
                     if (melodies != null) {
-                        Log.d(LOG_TAG, "melody not null"+melodies.size());
+                        Log.d(LOG_TAG, "melody not null" + melodies.size());
                         TOTAL_LIST_ITEMS = melodies.size();
                         loadMelodies(melodies);
-//                        showMessage(melodies.get(0).getTitle());
+
                     }
                 } else {
                     showMessage("Error code " + response.code());
@@ -139,7 +148,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
     }
 
-    private void initMedia(){
+    private void initMedia() {
 
         mMediaPlayer = new MediaPlayer();
         mPlayerControl = findViewById(R.id.player_control);
@@ -150,7 +159,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
             public void onPrepared(MediaPlayer mp) {
                 Log.d(LOG_TAG, "onPrepared:");
                 togglePlayPause();
-                if (firstDefaultClick){
+                if (firstDefaultClick) {
                     togglePlayPause();
                 }
 
@@ -170,7 +179,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         Toast.makeText(StreamActivity.this, message, Toast.LENGTH_LONG).show();
     }
 
-    private void loadMelodies(ArrayList<Melody> newMelodies){
+    private void loadMelodies(ArrayList<Melody> newMelodies) {
 
         melodies.clear();
         melodies.addAll(newMelodies);
@@ -209,10 +218,12 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         //handle mediaPlayer
 
+
         if (mMediaPlayer.isPlaying()) {
             mMediaPlayer.stop();
-            mMediaPlayer.reset();
         }
+        mMediaPlayer.reset();
+
 
         try {
             mMediaPlayer.setDataSource(melody.getMelodyUrl());
@@ -284,13 +295,13 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         });
     }
 
-    private void paginateData(){
+    private void paginateData() {
 
         int val = TOTAL_LIST_ITEMS % NUM_ITEMS_PAGE;
         val = (val == 0) ? 0 : 1;
         pageCount = TOTAL_LIST_ITEMS / NUM_ITEMS_PAGE + val;
 
-        Log.d(LOG_TAG, "page count: "+pageCount);
+        Log.d(LOG_TAG, "page count: " + pageCount);
 
 
         loadList(0);
@@ -319,28 +330,22 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     /**
      * Method for enabling and disabling Buttons
      */
-    private void CheckEnable()
-    {
-        if(increment + 1 == pageCount)
-        {
-            Toast.makeText(this, "You are on the last page", Toast.LENGTH_SHORT).show();
+    private void CheckEnable() {
+        if (increment + 1 == pageCount) {
+//            Toast.makeText(this, "You are on the last page", Toast.LENGTH_SHORT).show();
             btnNext.setEnabled(false);
             btnPrev.setEnabled(true);
-            btnNext.setBackgroundColor(ContextCompat.getColor(this,R.color.grey_disabled));
-            btnPrev.setBackgroundColor(ContextCompat.getColor(this,R.color.colorPrimary));
+            btnNext.setBackgroundColor(ContextCompat.getColor(this, R.color.grey_disabled));
+            btnPrev.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
 
 
-        }
-        else if(increment == 0)
-        {
-            Toast.makeText(this, "You are on the first page", Toast.LENGTH_SHORT).show();
+        } else if (increment == 0) {
+//            Toast.makeText(this, "You are on the first page", Toast.LENGTH_SHORT).show();
             btnPrev.setEnabled(false);
             btnNext.setEnabled(true);
-            btnPrev.setBackgroundColor(ContextCompat.getColor(this,R.color.grey_disabled));
-            btnNext.setBackgroundColor(ContextCompat.getColor(this,R.color.colorAccent));
-        }
-        else
-        {
+            btnPrev.setBackgroundColor(ContextCompat.getColor(this, R.color.grey_disabled));
+            btnNext.setBackgroundColor(ContextCompat.getColor(this, R.color.colorAccent));
+        } else {
             btnPrev.setEnabled(true);
             btnNext.setEnabled(true);
         }
@@ -358,22 +363,24 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
             }
         }
 
-        Log.d(LOG_TAG, "filter list size: "+filteredList.size());
+        Log.d(LOG_TAG, "filter list size: " + filteredList.size());
 
         melodies.clear();
         melodies.addAll(filteredList);
         mAdapter.notifyDataSetChanged();
 
-//        mAdapter = new StreamAdapter(this,filteredList,this);
-//        mRecyclerView.setAdapter(mAdapter);
 
-
+        //Select first item by default
         onMelodyItemClick(0);
         firstDefaultClick = true;
 
     }
 
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        return cm != null && cm.getActiveNetworkInfo() != null;
 
+    }
 
 
 }

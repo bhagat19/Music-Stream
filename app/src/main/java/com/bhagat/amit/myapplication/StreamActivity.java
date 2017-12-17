@@ -4,6 +4,7 @@ package com.bhagat.amit.myapplication;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -35,6 +36,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     private RecyclerView mRecyclerView;
     private StreamAdapter mAdapter;
     private ArrayList<Melody> melodies;
+    private ArrayList<Melody> responseMelodies;
     private TextView mSelectedMelodyTitle;
     private ImageView mSelectedMelodyImage;
     private int TOTAL_LIST_ITEMS;
@@ -72,6 +74,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         initMedia();
 
         this.melodies = new ArrayList<>();
+        this.responseMelodies = new ArrayList<>();
 
 //        final LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false) {
 //            @Override
@@ -171,6 +174,7 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         melodies.clear();
         melodies.addAll(newMelodies);
+        responseMelodies.addAll(newMelodies);
 
 //        if (firstTime) {
 //            mAdapter.notifyDataSetChanged();
@@ -319,13 +323,21 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     {
         if(increment + 1 == pageCount)
         {
+            Toast.makeText(this, "You are on the last page", Toast.LENGTH_SHORT).show();
             btnNext.setEnabled(false);
             btnPrev.setEnabled(true);
+            btnNext.setBackgroundColor(ContextCompat.getColor(this,R.color.grey_disabled));
+            btnPrev.setBackgroundColor(ContextCompat.getColor(this,R.color.colorPrimary));
+
+
         }
         else if(increment == 0)
         {
+            Toast.makeText(this, "You are on the first page", Toast.LENGTH_SHORT).show();
             btnPrev.setEnabled(false);
             btnNext.setEnabled(true);
+            btnPrev.setBackgroundColor(ContextCompat.getColor(this,R.color.grey_disabled));
+            btnNext.setBackgroundColor(ContextCompat.getColor(this,R.color.colorAccent));
         }
         else
         {
@@ -339,8 +351,8 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         int start = number * NUM_ITEMS_PAGE;
         for (int i = start; i < (start) + NUM_ITEMS_PAGE; i++) {
-            if (i < melodies.size()) {
-                filteredList.add(melodies.get(i));
+            if (i < responseMelodies.size()) {
+                filteredList.add(responseMelodies.get(i));
             } else {
                 break;
             }
@@ -348,8 +360,12 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         Log.d(LOG_TAG, "filter list size: "+filteredList.size());
 
-        mAdapter = new StreamAdapter(this,filteredList,this);
-        mRecyclerView.setAdapter(mAdapter);
+        melodies.clear();
+        melodies.addAll(filteredList);
+        mAdapter.notifyDataSetChanged();
+
+//        mAdapter = new StreamAdapter(this,filteredList,this);
+//        mRecyclerView.setAdapter(mAdapter);
 
 
         onMelodyItemClick(0);

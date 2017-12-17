@@ -55,7 +55,7 @@
         android:orientation="horizontal">
         <Button
             android:layout_width="0dp"
-            android:background="@color/colorPrimary"
+            android:background="@color/grey_disabled"
             android:layout_margin="4dp"
             android:text="PREV"
             android:textColor="#ffffff"

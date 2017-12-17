@@ -1,5 +1,6 @@
 package com.bhagat.amit.myapplication;
 
+import android.app.ProgressDialog;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -12,7 +13,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,9 +38,21 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     private ArrayList<Melody> melodies;
     private TextView mSelectedMelodyTitle;
     private ImageView mSelectedMelodyImage;
+    private int TOTAL_LIST_ITEMS;
+    private static int NUM_ITEMS_PAGE;
+    private int pageCount;
+    private int increment = 0;
+    boolean firstTime = true;
+
+    private LinearLayoutManager layoutManager;
 
     private MediaPlayer mMediaPlayer;
     private ImageView mPlayerControl;
+    private ProgressBar mProgressBar;
+
+    private int firstVisibleItemPosition, lastVisibleItemPosition;
+
+    private Button btnNext,btnPrev;
 
     private static final String LOG_TAG = StreamActivity.class.getSimpleName();
 
@@ -46,11 +61,63 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_stream);
 
-        mSelectedMelodyImage = (ImageView) findViewById(R.id.selected_track_image);
-        mSelectedMelodyTitle = (TextView) findViewById(R.id.selected_track_title);
+        mSelectedMelodyImage = findViewById(R.id.selected_track_image);
+        mSelectedMelodyTitle = findViewById(R.id.selected_track_title);
+
+        btnNext     = findViewById(R.id.btn_next);
+        btnPrev     = findViewById(R.id.btn_prev);
+        btnPrev.setEnabled(false);
+
+        initMedia();
+
+        this.melodies = new ArrayList<>();
+
+        mRecyclerView = findViewById(R.id.recycler_view);
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        mRecyclerView.setHasFixedSize(true);
+        mAdapter = new StreamAdapter(this, melodies, this);
+        mRecyclerView.setAdapter(mAdapter);
+
+        layoutManager = (LinearLayoutManager) mRecyclerView.getLayoutManager();
+
+        loadData();
+    }
+
+    private void loadData(){
+
+        OlaStudioService service = OlaStudio.getService();
+
+        service.getRecentTracks().enqueue(new Callback<ArrayList<Melody>>() {
+            @Override
+            public void onResponse(Call<ArrayList<Melody>> call, Response<ArrayList<Melody>> response) {
+
+                if (response.isSuccessful()) {
+                    Log.d(LOG_TAG,"response: "+response.toString());
+                    ArrayList<Melody> melodies = response.body();
+                    if (melodies != null) {
+                        Log.d(LOG_TAG, "melody not null"+melodies.size());
+                        TOTAL_LIST_ITEMS = melodies.size();
+                        loadMelodies(melodies);
+//                        showMessage(melodies.get(0).getTitle());
+                    }
+                } else {
+                    showMessage("Error code " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ArrayList<Melody>> call, Throwable t) {
+                showMessage("Network Error: " + t.getMessage());
+
+            }
+        });
+
+    }
+
+    private void initMedia(){
 
         mMediaPlayer = new MediaPlayer();
-        mPlayerControl = (ImageView)findViewById(R.id.player_control);
+        mPlayerControl = findViewById(R.id.player_control);
 
         mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -67,40 +134,6 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
             }
         });
 
-
-        this.melodies = new ArrayList<>();
-
-        mRecyclerView = findViewById(R.id.recycler_view);
-        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        mRecyclerView.setHasFixedSize(true);
-        mAdapter = new StreamAdapter(this, melodies, this);
-        mRecyclerView.setAdapter(mAdapter);
-
-
-        OlaStudioService service = OlaStudio.getService();
-        service.getRecentTracks().enqueue(new Callback<ArrayList<Melody>>() {
-            @Override
-            public void onResponse(Call<ArrayList<Melody>> call, Response<ArrayList<Melody>> response) {
-
-                if (response.isSuccessful()) {
-                    Log.d(LOG_TAG,"response: "+response.toString());
-                    ArrayList<Melody> melodies = response.body();
-                    if (melodies != null) {
-                        Log.d(LOG_TAG, "melody not null"+melodies.size());
-                        loadMelodies(melodies);
-                        showMessage(melodies.get(0).getTitle());
-                    }
-                } else {
-                    showMessage("Error code " + response.code());
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ArrayList<Melody>> call, Throwable t) {
-                showMessage("Network Error: " + t.getMessage());
-
-            }
-        });
     }
 
     private void showMessage(String message) {
@@ -108,9 +141,21 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     }
 
     private void loadMelodies(ArrayList<Melody> newMelodies){
+
         melodies.clear();
         melodies.addAll(newMelodies);
-        mAdapter.notifyDataSetChanged();
+
+        if (firstTime) {
+            mAdapter.notifyDataSetChanged();
+            firstVisibleItemPosition = layoutManager.findFirstCompletelyVisibleItemPosition();
+            lastVisibleItemPosition = layoutManager.findLastCompletelyVisibleItemPosition();
+            Log.d(LOG_TAG, "fist pos: "+firstVisibleItemPosition+ "last pos: "+lastVisibleItemPosition);
+            NUM_ITEMS_PAGE = 6;
+            Log.d(LOG_TAG, "num_items_page: "+NUM_ITEMS_PAGE);
+            firstTime = false;
+        }
+
+        paginateData();
     }
 
     @Override
@@ -132,7 +177,6 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         builder.downloader(new OkHttp3Downloader(this));
         builder.build().
                 load(melody.getImageUrl()).
-                resize(48, 48).
                 into(mSelectedMelodyImage);
 
         //handle mediaPlayer
@@ -210,4 +254,87 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
             }
         });
     }
+
+    private void paginateData(){
+
+        int val = TOTAL_LIST_ITEMS % NUM_ITEMS_PAGE;
+        val = (val == 0) ? 0 : 1;
+        pageCount = TOTAL_LIST_ITEMS/NUM_ITEMS_PAGE + val;
+
+        Log.d(LOG_TAG, "page count: "+pageCount);
+
+
+        loadList(0);
+
+        btnNext.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+
+                increment++;
+                loadList(increment);
+                CheckEnable();
+            }
+        });
+
+        btnPrev.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View v) {
+
+                increment--;
+                loadList(increment);
+                CheckEnable();
+            }
+        });
+
+    }
+
+    /**
+     * Method for enabling and disabling Buttons
+     */
+    private void CheckEnable()
+    {
+        if(increment+1 == pageCount)
+        {
+            btnNext.setEnabled(false);
+            btnPrev.setEnabled(true);
+        }
+        else if(increment == 0)
+        {
+            btnPrev.setEnabled(false);
+            btnNext.setEnabled(true);
+        }
+        else
+        {
+            btnPrev.setEnabled(true);
+            btnNext.setEnabled(true);
+        }
+    }
+
+    private void loadList(int number) {
+        ArrayList<Melody> filteredList = new ArrayList<Melody>();
+
+        int start = number * NUM_ITEMS_PAGE;
+        for (int i = start; i < (start) + NUM_ITEMS_PAGE; i++) {
+            if (i < melodies.size()) {
+                filteredList.add(melodies.get(i));
+            } else {
+                break;
+            }
+        }
+
+        Log.d(LOG_TAG, "filter list size: "+filteredList.size());
+
+
+        mAdapter = new StreamAdapter(this,filteredList,this);
+        mRecyclerView.setAdapter(mAdapter);
+
+//        melodies.clear();
+//        melodies.addAll(filteredList);
+//        mAdapter.notifyDataSetChanged();
+
+    }
+
+
+
+
 }
+

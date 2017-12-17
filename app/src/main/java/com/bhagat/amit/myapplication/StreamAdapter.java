@@ -84,7 +84,6 @@ public class StreamAdapter extends RecyclerView.Adapter implements Filterable {
 
         builder.build().
                 load(mFilteredList.get(position).getImageUrl()).
-                resize(48, 48).
                 into(((MelodyItemViewHolder) holder).ivCoverImage);
 
 

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:orientation="vertical"
+    android:layout_height="match_parent"
+    tools:context="com.bhagat.amit.myapplication.StreamActivity">
+
+    <!--<TextView-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:text="Hello World!"-->
+        <!--app:layout_constraintBottom_toBottomOf="parent"-->
+        <!--app:layout_constraintLeft_toLeftOf="parent"-->
+        <!--app:layout_constraintRight_toRightOf="parent"-->
+        <!--app:layout_constraintTop_toTopOf="parent" />-->
+
+    <android.support.v7.widget.RecyclerView
+        android:layout_width="match_parent"
+        android:padding="4dp"
+        android:layout_weight="1"
+        android:layout_height="0dp"
+        android:id="@+id/recycler_view"/>
+
+    <android.support.v7.widget.Toolbar
+        android:background="#333333"
+        android:theme="@style/Base.ThemeOverlay.AppCompat.Dark.ActionBar"
+        android:layout_width="match_parent"
+        android:layout_height="100dp">
+
+        <ImageView
+            android:id="@+id/selected_track_image"
+            android:layout_width="92dp"
+            android:layout_height="92dp"/>
+
+        <TextView
+            android:id="@+id/selected_track_title"
+            android:paddingLeft="8dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <ImageView
+            android:id="@+id/player_control"
+            android:layout_gravity="right"
+            android:layout_width="@dimen/image_size"
+            android:layout_height="@dimen/image_size"/>
+
+    </android.support.v7.widget.Toolbar>
+
+</LinearLayout>

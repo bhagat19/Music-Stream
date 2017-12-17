@@ -38,7 +38,8 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     private TextView mSelectedMelodyTitle;
     private ImageView mSelectedMelodyImage;
     private int TOTAL_LIST_ITEMS;
-    private static int NUM_ITEMS_PAGE;
+    private static int NUM_ITEMS_PAGE = 5;
+    private static final int DEFAULT_ITEMS = 10;
     private int pageCount;
     private int increment = 0;
     boolean firstTime = true;
@@ -72,13 +73,34 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
         this.melodies = new ArrayList<>();
 
+//        final LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false) {
+//            @Override
+//            public void onLayoutChildren(final RecyclerView.Recycler recycler, final RecyclerView.State state) {
+//                super.onLayoutChildren(recycler, state);
+//
+//                if (firstTime) {
+//                    final int firstVisibleItemPosition = findFirstVisibleItemPosition();
+//                    final int lastVisibleItemPosition = findLastVisibleItemPosition();
+//                    Log.d(LOG_TAG, "first pos: "+firstVisibleItemPosition);
+//                    Log.d(LOG_TAG, "last pos: "+lastVisibleItemPosition);
+//
+//                    if (firstVisibleItemPosition != -1 && lastVisibleItemPosition != -1){
+//                        NUM_ITEMS_PAGE = lastVisibleItemPosition - firstVisibleItemPosition;
+//                        firstTime = false;
+//                        Log.d(LOG_TAG, "items_page: "+NUM_ITEMS_PAGE);
+//                    }else {
+//                        NUM_ITEMS_PAGE = 5;
+//                    }
+//
+//                }
+//            }
+//        };
+
         mRecyclerView = findViewById(R.id.recycler_view);
-        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(this,LinearLayoutManager.VERTICAL, false));
         mRecyclerView.setHasFixedSize(true);
         mAdapter = new StreamAdapter(this, melodies, this);
         mRecyclerView.setAdapter(mAdapter);
-
-        layoutManager = (LinearLayoutManager) mRecyclerView.getLayoutManager();
 
         loadData();
     }
@@ -150,15 +172,10 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         melodies.clear();
         melodies.addAll(newMelodies);
 
-        if (firstTime) {
-            mAdapter.notifyDataSetChanged();
-            firstVisibleItemPosition = layoutManager.findFirstCompletelyVisibleItemPosition();
-            lastVisibleItemPosition = layoutManager.findLastCompletelyVisibleItemPosition();
-            Log.d(LOG_TAG, "fist pos: "+firstVisibleItemPosition+ "last pos: "+lastVisibleItemPosition);
-            NUM_ITEMS_PAGE = 6;
-            Log.d(LOG_TAG, "num_items_page: "+NUM_ITEMS_PAGE);
-            firstTime = false;
-        }
+//        if (firstTime) {
+//            mAdapter.notifyDataSetChanged();
+//            firstTime = false;
+//        }
 
         paginateData();
     }

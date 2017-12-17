@@ -55,12 +55,18 @@
         android:orientation="horizontal">
         <Button
             android:layout_width="0dp"
+            android:background="@color/colorPrimary"
+            android:layout_margin="4dp"
             android:text="PREV"
+            android:textColor="#ffffff"
             android:id="@+id/btn_prev"
             android:layout_height="match_parent"
             android:layout_weight="1"/>
         <Button
             android:layout_width="0dp"
+            android:layout_margin="4dp"
+            android:textColor="#ffffff"
+            android:background="@color/colorAccent"
             android:text="NEXT"
             android:id="@+id/btn_next"
             android:layout_height="match_parent"

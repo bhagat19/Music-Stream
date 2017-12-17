@@ -40,8 +40,16 @@
         <ImageView
             android:id="@+id/player_control"
             android:layout_gravity="right"
+            android:background="?attr/selectableItemBackground"
             android:layout_width="@dimen/image_size"
             android:layout_height="@dimen/image_size"/>
+        <ImageButton
+            android:layout_width="@dimen/image_size"
+            android:layout_height="@dimen/image_size"
+            android:layout_gravity="right"
+            android:id="@+id/btn_download"
+            android:background="?attr/selectableItemBackground"
+            android:src="@drawable/ic_file_download_white_24dp"/>
 
     </android.support.v7.widget.Toolbar>
 

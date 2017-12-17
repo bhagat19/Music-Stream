@@ -1,12 +1,15 @@
 package com.bhagat.amit.myapplication;
 
 
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Environment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -17,6 +20,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.SearchView;
@@ -26,9 +30,20 @@ import android.widget.Toast;
 import com.jakewharton.picasso.OkHttp3Downloader;
 import com.squareup.picasso.Picasso;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.ref.WeakReference;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -54,8 +69,10 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
     private MediaPlayer mMediaPlayer;
     private ImageView mPlayerControl;
-    private ProgressBar mProgressBar;
-    
+    private static ProgressBar mProgressBar;
+    private ImageButton btnDownload;
+    private int clickedPos;
+
 
     private Button btnNext, btnPrev;
 
@@ -72,6 +89,15 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         btnNext = findViewById(R.id.btn_next);
         btnPrev = findViewById(R.id.btn_prev);
         btnPrev.setEnabled(false);
+
+        btnDownload = findViewById(R.id.btn_download);
+
+        btnDownload.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startDownload(melodies.get(clickedPos).getMelodyUrl());
+            }
+        });
 
         initMedia();
 
@@ -195,6 +221,8 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
     @Override
     public void onMelodyItemClick(int position) {
+
+        clickedPos = position;
 
         firstDefaultClick = false;
 
@@ -381,6 +409,136 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
         return cm != null && cm.getActiveNetworkInfo() != null;
 
     }
+
+    private void startDownload(String url) {
+        new DownloadFileAsync(this).execute(url);
+    }
+
+     private static class DownloadFileAsync extends AsyncTask<String, String, String> {
+
+        WeakReference<Activity> activityWeakReference;
+
+        public DownloadFileAsync(Activity activity){
+            this.activityWeakReference = new WeakReference<Activity>(activity);
+        }
+
+         @Override
+         protected void onPreExecute() {
+             super.onPreExecute();
+             mProgressBar.setVisibility(View.VISIBLE);
+         }
+
+         @Override
+         protected String doInBackground(String... aurl) {
+             InputStream input = null;
+             OutputStream output = null;
+             HttpURLConnection conn = null;
+             try {
+
+                 URL url = new URL(aurl[0]);
+                 conn = (HttpURLConnection) url.openConnection();
+
+                 boolean redirect = false;
+
+                 // normally, 3xx is redirect
+                 int status = conn.getResponseCode();
+                 if (status != HttpURLConnection.HTTP_OK) {
+                     if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                             || status == HttpURLConnection.HTTP_MOVED_PERM
+                             || status == HttpURLConnection.HTTP_SEE_OTHER)
+                         redirect = true;
+                 }
+
+                 System.out.println("Response Code ... " + status);
+
+                 if (redirect) {
+
+                     // get redirect url from "location" header field
+                     String newUrl = conn.getHeaderField("Location");
+
+                     // open the new connnection again
+                     conn = (HttpURLConnection) new URL(newUrl).openConnection();
+
+
+                     System.out.println("Redirect to URL : " + newUrl);
+
+                 }
+
+
+                 // expect HTTP 200 OK, so we don't mistakenly save error report
+                 // instead of the file
+                 if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                     return "Server returned HTTP " + conn.getResponseCode()
+                             + " " + conn.getResponseMessage();
+                 }
+
+                 // this will be useful to display download percentage
+                 // might be -1: server did not report the length
+                 int fileLength = conn.getContentLength();
+
+                 // download the file
+                 input = conn.getInputStream();
+
+                 String root = Environment.getExternalStorageDirectory().toString();
+
+                 Log.d(LOG_TAG, "root:");
+
+                 File myDir = new File(root + "/studio/songs");
+                 if (!myDir.exists()) {
+                     myDir.mkdirs();
+                 }
+
+                 String timeStamp = String.valueOf(Calendar.getInstance().getTimeInMillis());
+
+                 String fname = "song_studio" + timeStamp + ".mp3";
+                 File file = new File(myDir, fname);
+
+                 output = new FileOutputStream(file);
+
+                 byte data[] = new byte[4096];
+                 long total = 0;
+                 int count;
+                 while ((count = input.read(data)) != -1) {
+                     // allow canceling with back button
+                     if (isCancelled()) {
+                         input.close();
+                         return null;
+                     }
+                     total += count;
+                     // publishing the progress....
+                     if (fileLength > 0) // only if total length is known
+
+                         output.write(data, 0, count);
+                 }
+             } catch (Exception e) {
+                 return e.toString();
+             } finally {
+                 try {
+                     if (output != null)
+                         output.close();
+                     if (input != null)
+                         input.close();
+                 } catch (IOException ignored) {
+                 }
+
+                 if (conn != null)
+                     conn.disconnect();
+             }
+             return null;
+         }
+
+         @Override
+         protected void onPostExecute(String result) {
+
+             mProgressBar.setVisibility(View.GONE);
+             if (result != null) {
+                 Toast.makeText(activityWeakReference.get(), "Download error: " + result, Toast.LENGTH_LONG).show();
+                 Log.d(LOG_TAG, "error: " + result);
+             }
+             else
+                 Toast.makeText(activityWeakReference.get(),"File downloaded", Toast.LENGTH_SHORT).show();
+         }
+     }
 
 
 }

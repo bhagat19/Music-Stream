@@ -87,6 +87,8 @@ public class StreamAdapter extends RecyclerView.Adapter implements Filterable {
                 into(((MelodyItemViewHolder) holder).ivCoverImage);
 
 
+
+
     }
 
     @Override

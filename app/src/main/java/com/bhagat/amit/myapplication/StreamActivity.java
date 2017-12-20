@@ -1,15 +1,20 @@
 package com.bhagat.amit.myapplication;
 
 
+import android.Manifest;
 import android.app.Activity;
-import android.app.ProgressDialog;
+
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Environment;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -30,8 +35,10 @@ import android.widget.Toast;
 import com.jakewharton.picasso.OkHttp3Downloader;
 import com.squareup.picasso.Picasso;
 
+
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,11 +46,10 @@ import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
+
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -64,6 +70,9 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
     private int increment = 0;
     boolean firstTime = true;
     private boolean firstDefaultClick = false;
+
+    public static final int MY_PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 123;
+    public static final int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 112;
 
     private LinearLayoutManager layoutManager;
 
@@ -416,15 +425,16 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
 
      private static class DownloadFileAsync extends AsyncTask<String, String, String> {
 
-        WeakReference<Activity> activityWeakReference;
+         WeakReference<Activity> activityWeakReference;
 
-        public DownloadFileAsync(Activity activity){
-            this.activityWeakReference = new WeakReference<Activity>(activity);
-        }
+         public DownloadFileAsync(Activity activity) {
+             this.activityWeakReference = new WeakReference<Activity>(activity);
+         }
 
          @Override
          protected void onPreExecute() {
              super.onPreExecute();
+             Toast.makeText(activityWeakReference.get(),"Download statrted", Toast.LENGTH_SHORT).show();
              mProgressBar.setVisibility(View.VISIBLE);
          }
 
@@ -465,80 +475,112 @@ public class StreamActivity extends AppCompatActivity implements StreamAdapter.O
                  }
 
 
-                 // expect HTTP 200 OK, so we don't mistakenly save error report
-                 // instead of the file
-                 if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                     return "Server returned HTTP " + conn.getResponseCode()
-                             + " " + conn.getResponseMessage();
-                 }
+//                 // expect HTTP 200 OK, so we don't mistakenly save error report
+//                 // instead of the file
+//                 if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+//                     return "Server returned HTTP " + conn.getResponseCode()
+//                             + " " + conn.getResponseMessage();
+//                 }
 
-                 // this will be useful to display download percentage
-                 // might be -1: server did not report the length
-                 int fileLength = conn.getContentLength();
 
                  // download the file
-                 input = conn.getInputStream();
+                 input = new BufferedInputStream(conn.getInputStream(),8192);
 
-                 String root = Environment.getExternalStorageDirectory().toString();
 
-                 Log.d(LOG_TAG, "root:");
+                 boolean writePermission = checkWritePermission(activityWeakReference.get());
+                 if (writePermission) {
 
-                 File myDir = new File(root + "/studio/songs");
-                 if (!myDir.exists()) {
-                     myDir.mkdirs();
-                 }
+                     String root = Environment.getExternalStorageDirectory().toString();
 
-                 String timeStamp = String.valueOf(Calendar.getInstance().getTimeInMillis());
+                     Log.d(LOG_TAG, "root:"+root);
 
-                 String fname = "song_studio" + timeStamp + ".mp3";
-                 File file = new File(myDir, fname);
-
-                 output = new FileOutputStream(file);
-
-                 byte data[] = new byte[4096];
-                 long total = 0;
-                 int count;
-                 while ((count = input.read(data)) != -1) {
-                     // allow canceling with back button
-                     if (isCancelled()) {
-                         input.close();
-                         return null;
+                     File myDir = new File(root + "/studio/songs");
+                     if (!myDir.exists()) {
+                         myDir.mkdirs();
                      }
-                     total += count;
-                     // publishing the progress....
-                     if (fileLength > 0) // only if total length is known
 
-                         output.write(data, 0, count);
+                     String timeStamp = String.valueOf(Calendar.getInstance().getTimeInMillis());
+
+                     String fname = timeStamp + ".mp3";
+
+                     Log.d(LOG_TAG, "root name: "+root+"/studio/songs" + fname);
+
+                     File file = new File(myDir, fname);
+                     if (!file.exists()) {
+                         file.createNewFile();
+                     }
+
+//                     if (file.exists()) file.delete();
+
+                     try {
+
+                         output = new FileOutputStream(file.getAbsoluteFile());
+
+                         byte[] buffer = new byte[1024];
+                         int byteReaded = input.read(buffer);
+                         while (byteReaded != -1) {
+                             output.write(buffer, 0, byteReaded);
+                             byteReaded = input.read(buffer);
+                         }
+                         output.flush();
+                         output.close();
+                         input.close();
+                     } catch (Exception e) {
+                         e.printStackTrace();
+                     }
+                 } else {
+                     Toast.makeText(activityWeakReference.get(), "Permission denied", Toast.LENGTH_SHORT).show();
                  }
              } catch (Exception e) {
-                 return e.toString();
-             } finally {
-                 try {
-                     if (output != null)
-                         output.close();
-                     if (input != null)
-                         input.close();
-                 } catch (IOException ignored) {
-                 }
-
-                 if (conn != null)
-                     conn.disconnect();
+                 e.printStackTrace();
              }
+
+             if (conn != null)
+                 conn.disconnect();
+
              return null;
          }
 
          @Override
          protected void onPostExecute(String result) {
-
+             super.onPostExecute(result);
              mProgressBar.setVisibility(View.GONE);
-             if (result != null) {
-                 Toast.makeText(activityWeakReference.get(), "Download error: " + result, Toast.LENGTH_LONG).show();
-                 Log.d(LOG_TAG, "error: " + result);
-             }
-             else
-                 Toast.makeText(activityWeakReference.get(),"File downloaded", Toast.LENGTH_SHORT).show();
+             Toast.makeText(activityWeakReference.get(),"Download completed", Toast.LENGTH_SHORT).show();
+             Log.d(LOG_TAG, "result: " + result);
+//             if (result != null) {
+//                 Toast.makeText(activityWeakReference.get(), "File DownLoaded: " + result, Toast.LENGTH_LONG).show();
+//                 Log.d(LOG_TAG, result);
+//             }
+//             else
+//                 Toast.makeText(activityWeakReference.get(),"Error", Toast.LENGTH_SHORT).show();
+//         }
+
+
          }
      }
+
+    public static boolean checkWritePermission(final Context context) {
+        int currentAPIVersion = Build.VERSION.SDK_INT;
+        if (currentAPIVersion >= android.os.Build.VERSION_CODES.M) {
+
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) context, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                    ActivityCompat.requestPermissions((Activity) context, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
+
+                } else {
+
+                    ActivityCompat.requestPermissions((Activity) context, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
+                }
+                return false;
+            } else {
+
+                return true;
+            }
+        } else {
+            return true;
+        }
+    }
+
 
 
 }
